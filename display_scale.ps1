@@ -21,10 +21,38 @@ function Set-Scaling {
     $apicall::SystemParametersInfo(0x009F, $scaling, $null, 1) | Out-Null
 }
 
+# Get Scaling
+Add-Type @'
+using System; 
+using System.Runtime.InteropServices;
+using System.Drawing;
+
+public class DPI {  
+  [DllImport("gdi32.dll")]
+  static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
+
+  public enum DeviceCap {
+  VERTRES = 10,
+  DESKTOPVERTRES = 117
+  } 
+
+  public static float scaling() {
+  Graphics g = Graphics.FromHwnd(IntPtr.Zero);
+  IntPtr desktop = g.GetHdc();
+  int LogicalScreenHeight = GetDeviceCaps(desktop, (int)DeviceCap.VERTRES);
+  int PhysicalScreenHeight = GetDeviceCaps(desktop, (int)DeviceCap.DESKTOPVERTRES);
+
+  return (float)PhysicalScreenHeight / (float)LogicalScreenHeight;
+  }
+}
+'@ -ReferencedAssemblies 'System.Drawing.dll' -ErrorAction Stop
+# Get Scaling
+$display_scale = [DPI]::scaling() * 100
+
 $display = Get-CimInstance -Namespace root\wmi -ClassName WmiMonitorBasicDisplayParams
 
 if ($display.Count -gt 1) {
-  Set-Scaling -scaling $scale1
+  if ($display_scale -ne 125) { Set-Scaling -scaling $scale1 }
 }else {
-  Set-Scaling -scaling $scale2
+  if ($display_scale -ne 100) { Set-Scaling -scaling $scale2 }
 }
